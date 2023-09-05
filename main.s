@@ -1,19 +1,27 @@
+; ===[VIA #1]===
 PORTB_1 = $7000
 PORTA_1 = $7001
-DDRB_1 = $7002
-DDRA_1 = $7003
+DDRB_1  = $7002
+DDRA_1  = $7003
 
+; ===[VIA #2]===
 PORTB_2 = $7400
 PORTA_2 = $7401
-DDRB_2 = $7402
-DDRA_2 = $7403
+DDRB_2  = $7402
+DDRA_2  = $7403
 
-LCD_E  = %10000000
-LCD_RW = %01000000
-LCD_RS = %00100000
+; ===[LCD]===
+LCD_E   = %10000000
+LCD_RW  = %01000000
+LCD_RS  = %00100000
+
+; ===[ACIA]===
+ACIA_DATA   = $7800
+ACIA_STATUS = $7801
+ACIA_CMD    = $7802
+ACIA_CTRL   = $7803
 
     .org $8000
-    .byte $88
 
 ; ===[reset]===
 ;
@@ -23,17 +31,35 @@ reset:
     txs
 
     jsr lcd_init        ; init LCD
-
-    ldx #0
-print:
-    lda message,x
-    beq loop
-    jsr pchar
-    inx
-    jmp print
+    jsr acia_init       ; init ACIA
 
 loop:
+    jsr acia_rx
+    jsr pchar
     jmp loop
+
+;======[ ACIA Routines ]======
+acia_init:
+    pha
+    lda #0
+    sta ACIA_STATUS     ; soft reset ACIA chip
+    lda #%00011111      ; N-8-1 @ 19200 baud
+    sta ACIA_CTRL
+    lda #%00001011      ; no parity, no echo, no interrupts
+    sta ACIA_CMD
+    pla
+    rts
+
+; Block until Rx buffer is full
+; Return Rx data in A register
+;
+; clobbers A register with result
+acia_rx:
+    lda ACIA_STATUS
+    and #$08            ; test Rx buffer full flag
+    beq acia_rx         ; loop while Rx buffer empty
+    lda ACIA_DATA
+    rts
 
 ;======[ LCD Routines ]======
 
