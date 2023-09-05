@@ -16,11 +16,24 @@ reset:
 ;
 ; pretty self-explanatory
 mainloop:
-    jsr acia_rx         ; blocking recieve
-    jsr pchar           ; print Rx data
-    jmp mainloop        ; do it again
+    ;jsr acia_rx         ; blocking recieve
+    ;jsr pchar           ; print Rx data
+    ;jmp mainloop        ; do it again
+    lda #'a'
+    jsr acia_tx
+    lda #'b'
+    jsr acia_tx
+    lda #'c'
+    jsr acia_tx
 
-;======[ ACIA Routines ]======
+busyloop:
+    jmp busyloop
+
+; ======[ ACIA Routines ]======
+
+; ===[acia_init]===
+;
+; Initialize the ACIA
 acia_init:
     pha
     lda #0
@@ -32,10 +45,11 @@ acia_init:
     pla
     rts
 
-; Block until Rx buffer is full
-; Return Rx data in A register
+; ===[acia_rx]===
 ;
-; clobbers A register with result
+; Block until Rx buffer is full
+;
+;   a = Received data
 acia_rx:
     lda ACIA_STATUS
     and #$08            ; test Rx buffer full flag
@@ -43,13 +57,28 @@ acia_rx:
     lda ACIA_DATA
     rts
 
-;======[ LCD Routines ]======
+; ===[acia_tx]===
+;
+; Blocking transmit
+;
+;   a = Tx data
+acia_tx:
+    sta ACIA_DATA
+    pha
+    lda #105
+.tx_delay
+    dec
+    bne .tx_delay
+    pla
+    rts
+
+; ======[ LCD Routines ]======
 
 ; ===[pstring]===
 ;
 ; Print a null-terminated string to the LCD display
 ;
-;   zp00 = 16-bit pointer to string start
+;   zp00-01 = 16-bit pointer to string start
 pstring:
     phy
     pha
@@ -64,7 +93,6 @@ pstring:
     pha
     ply
     rts
-
 
 ; ===[pchar]===
 ;
@@ -139,8 +167,6 @@ lcdbusy:
     sta DDRB_2
     pla
     rts
-
-message: .asciiz "Hello, world!"
 
     .org $fffc
     .word reset
